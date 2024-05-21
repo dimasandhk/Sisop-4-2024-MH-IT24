@@ -78,15 +78,9 @@ static int hello_rename(const char *from, const char *to, unsigned int flags) {
     sprintf(toPath,"%s%s",dirpath,to);
 
     if (strstr(toPath, "/wm") != NULL) {
-        int srcfd = open(fromPath, O_RDONLY);
-        int destfd = open(toPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-
         char command[1000];
-        sprintf(command, "convert -gravity south -font Arial /proc/%d/fd/%d -fill white -pointsize 50 -annotate +0+0 '%s' /proc/%d/fd/%d", getpid(), srcfd, "inikaryakita.id", getpid(), destfd);
+        sprintf(command, "convert -gravity south -font Arial '%s' -fill white -pointsize 50 -annotate +0+0 '%s' '%s'", fromPath, "inikaryakita.id", toPath);
         system(command);
-
-        close(srcfd);
-        close(destfd);
 
         if (unlink(fromPath) == -1) {
             perror("Error: Failed to remove the source file.");
