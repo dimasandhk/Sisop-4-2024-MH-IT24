@@ -83,14 +83,7 @@ static int hello_rename(const char *from, const char *to, unsigned int flags) {
 
         char command[1000];
         sprintf(command, "convert -gravity south -font Arial /proc/%d/fd/%d -fill white -pointsize 50 -annotate +0+0 '%s' /proc/%d/fd/%d", getpid(), srcfd, "inikaryakita.id", getpid(), destfd);
-
-        int res = system(command);
-        if (res == -1) {
-            perror("gabisa jalanin imagemagick");
-            close(srcfd);
-            close(destfd);
-            return -errno;
-        }
+        system(command);
 
         close(srcfd);
         close(destfd);
@@ -180,7 +173,7 @@ static int hello_read(const char *path, char *buf, size_t size, off_t offset,
     } else {
         // If the file doesn't have a 'test' prefix, output normally
         int fd = open(fpath, O_RDONLY);
- if (fd == -1) {
+        if (fd == -1) {
             return -errno;
         }
 
