@@ -32,7 +32,7 @@ static int hello_mkdir(const char *path, mode_t mode) {
     int res;
 
     res = mkdir(fpath, mode);
-    if(res == -1)
+    if (res == -1)
         return -errno;
 
     return 0;
@@ -56,8 +56,6 @@ static int hello_readdir(const char *path, void *buf, fuse_fill_dir_t filler, of
     struct dirent *de;
 
     dp = opendir(fpath);
-    if (dp == NULL)
-        return -errno;
 
     while ((de = readdir(dp)) != NULL) {
         struct stat st;
@@ -77,7 +75,7 @@ static int hello_rename(const char *from, const char *to, unsigned int flags) {
     sprintf(fromPath,"%s%s",dirpath,from);
     sprintf(toPath,"%s%s",dirpath,to);
 
-    if (strstr(toPath, "/wm") != NULL) {
+    if (strstr(to, "/wm") != NULL) {
         char command[1000];
         sprintf(command, "convert -gravity south -font Arial '%s' -fill white -pointsize 50 -annotate +0+0 '%s' '%s'", fromPath, "inikaryakita.id", toPath);
         system(command);
@@ -100,9 +98,6 @@ static int hello_unlink(const char *path) {
     char fpath[1000];
     sprintf(fpath,"%s%s",dirpath,path);
     int res = unlink(fpath);
-    if (res == -1) {
-        return -errno;
-    }
     return 0;
 }
 
@@ -114,8 +109,7 @@ static int hello_chmod(const char *path, mode_t mode) {
     return 0;
 }
 
-static int hello_read(const char *path, char *buf, size_t size, off_t offset,
-                      struct fuse_file_info *fi) {
+static int hello_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
     char fpath[1000];
     sprintf(fpath,"%s%s",dirpath,path);
 
@@ -130,9 +124,6 @@ static int hello_read(const char *path, char *buf, size_t size, off_t offset,
     if (strncmp(filename, "test", 4) == 0) {
         // If the file has a 'test' prefix, reverse the words in the lines before output
         FILE *file = fopen(fpath, "r");
-        if (file == NULL) {
-            return -errno;
-        }
 
         char line[1024];
         buf[0] = '\0';  // Initialize the buffer to an empty string
@@ -167,14 +158,7 @@ static int hello_read(const char *path, char *buf, size_t size, off_t offset,
     } else {
         // If the file doesn't have a 'test' prefix, output normally
         int fd = open(fpath, O_RDONLY);
-        if (fd == -1) {
-            return -errno;
-        }
-
         int res = pread(fd, buf, size, offset);
-        if (res == -1) {
-            res = -errno;
-        }
 
         close(fd);
         return res;
