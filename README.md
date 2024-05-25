@@ -239,6 +239,401 @@ hasil chmod script, dan run script:
 
 > di situ terlihat ada cannot remove bahaya karena ada file hidden di folder bahaya yang mana tidak terdeksi di filesystem, jadi memang tidak ter-remove bukan karena error. Selain itu pun berhasil terremove
 
+# Soal 2 - pastibisa.c
+1. Define FUSE Version
+
+#define FUSE\_USE\_VERSION 31
+
+Mendefinisikan FUSE versi 31
+
+1. Menyertakan Header
+
+   #include <fuse.h>
+
+   #include <stdio.h>
+
+   #include <stdlib.h>
+
+   #include <string.h>
+
+   #include <unistd.h>
+
+   #include <fcntl.h>
+
+   #include <errno.h>
+
+   #include <sys/types.h>
+
+   #include <sys/stat.h>
+
+   #include <time.h>
+
+   #include <dirent.h>
+
+   #include <libgen.h>
+
+1. Logging Function
+
+   void log\_action(const char \*status, const char \*tag, const char \*information) {
+
+   `    `FILE \*log\_file = fopen("logs-fuse.log", "a");
+
+   `    `if (log\_file) {
+
+   `        `time\_t now = time(NULL);
+
+   `        `struct tm \*t = localtime(&now);
+
+   `        `fprintf(log\_file, "[%s]::%02d/%02d/%04d-%02d:%02d:%02d::[%s]::[%s]\n",
+
+   `                `status,
+
+   `                `t->tm\_mday, t->tm\_mon + 1, t->tm\_year + 1900,
+
+   `                `t->tm\_hour, t->tm\_min, t->tm\_sec,
+
+   `                `tag, information);
+
+   `        `fclose(log\_file);
+
+   `    `}
+
+   }
+
+   Fungsi ini berguna untuk mencatat tindakan ke dalam file log dengan format yang mencakup waktu saat ini, status, tag, dan informasi.
+
+1. Base64 Decode Function
+
+   void base64\_decode(const char \*encoded, char \*decoded) {
+
+   `    `FILE \*pipe = popen("echo -n | base64 -d", "r");
+
+   `    `fwrite(encoded, 1, strlen(encoded), pipe);
+
+   `    `pclose(pipe);
+
+   }
+
+   Disini saya menambahkan fungsi untuk mendekode teks yang dikodekan dengan Base64 menggunakan perintah shell base64 -d.
+
+1. ROT13 Decode Function
+
+   void rot13\_decode(char \*text) {
+
+   `    `for (int i = 0; text[i]; i++) {
+
+   `        `if ('a' <= text[i] && text[i] <= 'z') {
+
+   `            `text[i] = 'a' + (text[i] - 'a' + 13) % 26;
+
+   `        `} else if ('A' <= text[i] && text[i] <= 'Z') {
+
+   `            `text[i] = 'A' + (text[i] - 'A' + 13) % 26;
+
+   `        `}
+
+   `    `}
+
+   }
+
+   Disini saya menggunakan fungsi untuk mendekode teks yang dikodekan dengan ROT13, di mana setiap huruf digeser 13 posisi dalam alfabet.
+
+1. Hex Decode Function
+
+   int hex\_value(char c) {
+
+   `    `if ('0' <= c && c <= '9') return c - '0';
+
+   `    `if ('a' <= c && c <= 'f') return c - 'a' + 10;
+
+   `    `if ('A' <= c && c <= 'F') return c - 'A' + 10;
+
+   `    `return -1;
+
+   }
+
+   void hex\_decode(const char \*encoded, char \*decoded) {
+
+   `    `while (\*encoded && encoded[1]) {
+
+   `        `\*(decoded++) = (char)((hex\_value(\*encoded) << 4) | hex\_value(encoded[1]));
+
+   `        `encoded += 2;
+
+   `    `}
+
+   `    `\*decoded = '\0';
+
+   }
+
+   Fungsi ini untuk mendekode teks yang dikodekan dalam format hexadecimal.
+
+1. Reverse Text Function
+
+   void reverse\_text(char \*text) {
+
+   `    `int len = strlen(text);
+
+   `    `for (int i = 0; i < len / 2; i++) {
+
+   `        `char temp = text[i];
+
+   `        `text[i] = text[len - i - 1];
+
+   `        `text[len - i - 1] = temp;
+
+   `    `}
+
+   }
+
+   Disni saya menambahkan fungsi untuk membalikkan teks
+
+1. Construct Path Function
+
+   static char \*construct\_path(const char \*path) {
+
+   `    `static char full\_path[512];
+
+   `    `snprintf(full\_path, sizeof(full\_path), "%s%s", "/home/fadhils/inikaryakita/pesan", path);
+
+   `    `return full\_path;
+
+   }
+
+   Fungsi ini berguna untuk menambahkan path yang diberikan ke path dasar /home/fadhils/inikaryakita/pesan.
+
+1. Authentication Variables
+
+   static const char \*correct\_password = "Sempol";
+
+   static int authenticated = 0;
+
+   Disini saya menambahkan variabel untuk menyimpan password
+
+1. Filesystem Operations
+
+   Berikut adalah bagian Filesystem Operations:
+
+   Getattr Function
+
+   static int fs\_getattr(const char \*path, struct stat \*stbuf, struct fuse\_file\_info \*fi) {
+
+   `    `(void) fi;
+
+   `    `int res;
+
+   `    `char \*full\_path = construct\_path(path);
+
+   `    `res = lstat(full\_path, stbuf);
+
+   `    `if (res == -1)
+
+   `        `return -errno;
+
+   `    `return 0;
+
+   }
+
+   Fungsi ini berguna untuk mendapatkan atribut sebuah file
+
+   Readdir Function
+
+   static int fs\_readdir(const char \*path, void \*buf, fuse\_fill\_dir\_t filler, off\_t offset, struct fuse\_file\_info \*fi, enum fuse\_readdir\_flags flags) {
+
+   `    `(void) offset;
+
+   `    `(void) fi;
+
+   `    `DIR \*dp;
+
+   `    `struct dirent \*de;
+
+   `    `struct stat st;
+
+   `    `char \*full\_path = construct\_path(path);
+
+   `    `dp = opendir(full\_path);
+
+   `    `if (dp == NULL)
+
+   `        `return -errno;
+
+   `    `while ((de = readdir(dp)) != NULL) {
+
+   `        `memset(&st, 0, sizeof(st));
+
+   `        `st.st\_ino = de->d\_ino;
+
+   `        `st.st\_mode = de->d\_type << 12;
+
+   `        `if (strcmp(de->d\_name, ".") == 0 || strcmp(de->d\_name, "..") == 0) {
+
+   `            `continue;
+
+   `        `}
+
+   `        `if (filler(buf, de->d\_name, &st, 0, 0)) {
+
+   `            `break;
+
+   `        `}
+
+   `    `}
+
+   `    `closedir(dp);
+
+   `    `return 0;
+
+   }
+
+   Fungsi ini berguna untuk membaca isi direktori
+
+   Open Function
+
+   static int fs\_open(const char \*path, struct fuse\_file\_info \*fi) {
+
+   `    `if (strncmp(path, "/rahasia-berkas", 15) == 0 && !authenticated) {
+
+   `        `log\_action("FAILED", "open", path);
+
+   `        `return -EACCES;
+
+   `    `}
+
+   `    `int res;
+
+   `    `char \*full\_path = construct\_path(path);
+
+   `    `res = open(full\_path, fi->flags);
+
+   `    `if (res == -1)
+
+   `        `return -errno;
+
+   `    `close(res);
+
+   `    `return 0;
+
+   }
+
+   Fungsi ini berguna untuk membuka file dan memeriksa autentikasi untuk file rahasia.
+
+   Read Function
+
+   static int fs\_read(const char \*path, char \*buf, size\_t size, off\_t offset, struct fuse\_file\_info \*fi) {
+
+   `    `if (strncmp(path, "/rahasia-berkas", 15) == 0 && !authenticated) {
+
+   `        `log\_action("FAILED", "read", path);
+
+   `        `return -EACCES;
+
+   `    `}
+
+   `    `int fd;
+
+   `    `int res;
+
+   `    `char \*full\_path = construct\_path(path);
+
+   `    `fd = open(full\_path, O\_RDONLY);
+
+   `    `if (fd == -1)
+
+   `        `return -errno;
+
+   `    `res = pread(fd, buf, size, offset);
+
+   `    `if (res == -1)
+
+   `        `res = -errno;
+
+   `    `close(fd);
+
+   `    `char \*filename = basename(full\_path);
+
+   `    `if (strncmp(filename, "base64\_", 7) == 0) {
+
+   `        `char decoded[1024];
+
+   `        `base64\_decode(buf, decoded);
+
+   `        `strcpy(buf, decoded);
+
+   `    `} else if (strncmp(filename, "rot13\_", 6) == 0) {
+
+   `        `rot13\_decode(buf);
+
+   `    `} else if (strncmp(filename, "hex\_", 4) == 0) {
+
+   `        `char decoded[1024];
+
+   `        `hex\_decode(buf, decoded);
+
+   `        `strcpy(buf, decoded);
+
+   `    `} else if (strncmp(filename, "rev\_", 4) == 0) {
+
+   `        `reverse\_text(buf);
+
+   `    `}
+
+   `    `log\_action("SUCCESS", "read", path);
+
+   `    `return res;
+
+   }
+
+   Fungs ini  untuk membaca file. Memeriksa autentikasi dan mendekode konten file jika diperlukan.
+
+1. FUSE Operations Structure
+
+   static struct fuse\_operations fs\_oper = {
+
+       .getattr = fs\_getattr,
+
+       .readdir = fs\_readdir,
+
+       .open = fs\_open,
+
+       .read = fs\_read,
+
+   };
+
+   Disini saya menambahkan struktur yang mendefinisikan operasi FUSE yang diimplementasikan.
+
+1. Main Function
+
+   int main(int argc, char \*argv[]) {
+
+   `    `umask(0);
+
+   `    `char password[256];
+
+   `    `printf("Enter password to access 'rahasia-berkas': ");
+
+   `    `scanf("%255s", password);
+
+   `    `if (strcmp(password, correct\_password) == 0) {
+
+   `        `authenticated = 1;
+
+   `        `log\_action("SUCCESS", "authenticate", "User authenticated successfully");
+
+   `    `} else {
+
+   `        `log\_action("FAILED", "authenticate", "User authentication failed");
+
+   `    `}
+
+   `    `return fuse\_main(argc, argv, &fs\_oper, NULL);
+
+   }
+
+   Disini saya menambahkan fungsi utama yang mengatur umask, meminta password dari pengguna, memeriksa autentikasi, dan menjalankan FUSE dengan operasi yang telah didefinisikan.
+
+   Catatan: file ini belum berhasil dijalankan, kemungkinan error berada di bagian logging Function
+
 # Soal_3 - archeolog.c
 
 ## Preface
