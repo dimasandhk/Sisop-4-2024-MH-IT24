@@ -239,4 +239,95 @@ hasil chmod script, dan run script:
 
 > di situ terlihat ada cannot remove bahaya karena ada file hidden di folder bahaya yang mana tidak terdeksi di filesystem, jadi memang tidak ter-remove bukan karena error. Selain itu pun berhasil terremove
 
+# Soal_3 - archeolog.c
 
+## Preface
+Soal tidak dapat diselesaikan karena kesalahan pemahaman akan soal, namun saya akan berikan penjelasan akan apa yang telah saya kerjakan sesingkat mungkin.
+
+## What-do
+Tidak sesuai dengan soal. Tapi program yang telah saya buat akan membuat folder FUSE yang berisikan data utuh dari pecahan-pecahan sebuah data dari folder `relics`. Ada pula folder samba bernama `report` yang dapat membagikan hasil data ke device yang terhubung.
+
+## Libraries
+```
+#include <fuse3/fuse.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
+```
+- `fuse.h` berisi deklarasi fungsi-fungsi yang akan dipanggil pada operasi yang dilakukan dalam filesystem (mkdir, copy, cat, etc..). Setiap operasi perlu dibuat fungsinya masing-masing untuk bekerja. Dokumentasi lanjut ada pada [repo](https://github.com/libfuse/libfuse/blob/master/example/passthrough.c) ini.
+- `stdio.h` fungsi input/ouput biasa.
+- `string.h` memanipulasi data string.
+- `errno.h` banyak macros untuk berbagai jenis error. 
+- `unistd.h` banyak fungsi dan macros yang digunakan oleh POSIX systems (Linux, UNIX, lalala..).
+
+## Fungsi untuk Operasi FS
+Dipanggil ketika melakukan FUSE operation. Error pada *debug mode* jika fungsi belum terdefinisi.
+```
+static const struct fuse_operations picat_oper = {
+	.getattr	= picat_getattr,
+	.readdir	= picat_readdir,
+	.read		= picat_read,
+};
+```
+- `getattr` memberikan informasi attribut pada file-file dalam direktori yang ditunjuk oleh binary 'archeolog'. Informasi seperti file premission, jumlah hardlinks, dan tipe file (file/direktori). 
+- `readdir` membaca direktori serta bisa menambah file / direktori ketika user melihat direktori tersebut. 
+- `read` membaca file dan menyatukan pecahan relics. Belum berhasil.
+
+## Fungsi Utilitas
+Fungsi yang membantu fungsi FUSE Operations.
+```
+size_t fsize(char *fname) 
+{
+	FILE *fp = fopen(fname, "r");
+	fseek(fp, 0L, SEEK_END);
+	size_t size = (size_t) ftell(fp);
+	return size;
+}
+
+/* Tis one below Doesnt work. Segfault everytime and crashes 
+ * the folder where binary is located. Proceed w/ caution 
+ * and dont run on home. Fix w/ `fusermount -uz ./; mount ./;`
+ * or the likes of that.
+ */
+void picat(char const *fname) 
+{
+	char destpath[50];
+	snprintf(destpath, 50, "./test/%s", fname);
+	FILE *dest;
+
+	for(int i = 0; i <= 6; i++) {
+		char pcname[18], pcpath[50];
+		snprintf(pcname, 18, "%s.00%d", fname, i);
+		snprintf(pcpath, 50, "./relics/%s", pcname);
+		FILE *piece = fopen(pcpath, "rb");
+		fseek(piece, 0, SEEK_SET);
+		dest = fopen(destpath,"ab");
+		int pclen = fsize(pcpath);
+		for(int i = 0; i < pclen; i++)
+			fputc(fgetc(piece), dest);
+		fclose(piece);
+	}
+	
+	fclose(dest); 
+}
+```
+- `fsize` mengukur ukuran file dari input nama file tersebut.
+- `picat` concatenate pecahan file dari folder `relics` ke folder yang ditunjuk dalam eksekusi binary file, folder `[nama bebas]`. 
+
+## Fungsi Main
+Modifikasi fungsi main dari `hello.c` pada [repo](https://github.com/libfuse/libfuse/blob/master/example/passthrough.c) yang direferensi. 
+```
+/* Dont touch also. Dunt understand, no time,
+ * lack reference. Keep it running.
+ */
+int main(int argc, char *argv[])
+{
+	int ret;
+	struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+
+	ret = fuse_main(args.argc, args.argv, &picat_oper, NULL);
+	fuse_opt_free_args(&args);
+	return ret;
+}
+```
